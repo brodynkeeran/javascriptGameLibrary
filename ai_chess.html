@@ -1,4 +1,17 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Chess vs AI</title><style>body{font-family:Arial,sans-serif;margin:20px;text-align:center}#board{display:grid;grid-template-columns:repeat(8,60px);grid-template-rows:repeat(8,60px);border:2px solid #333;margin:10px auto;width:480px;user-select:none}.square{width:60px;height:60px;line-height:60px;font-size:40px;cursor:pointer;text-align:center}.selected{outline:3px solid #4caf50}label,select{font-weight:bold;margin:10px 5px}#status{margin-top:10px;font-size:18px;min-height:24px}button{margin-top:10px;font-size:16px;padding:6px 12px}</style></head><body><h1>Chess vs AI</h1><label for="difficulty">Difficulty:</label><select id="difficulty"><option value="1">Easy</option><option value="2" selected>Medium</option><option value="3">Hard</option></select><label for="themeSelect">Board Theme:</label><select id="themeSelect"><option value="classic" selected>Classic</option><option value="blue">Blue</option><option value="green">Green</option><option value="dark">Dark</option></select><button id="restartBtn">Restart Game</button><div id="board"></div><div id="status">Your move (White)</div><script>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Chess vs AI</title>
+    <style>
+    body{font-family:Arial,sans-serif;margin:20px;text-align:center}#board{display:grid;grid-template-columns:repeat(8,60px);grid-template-rows:repeat(8,60px);border:2px solid #333;margin:10px auto;width:480px;user-select:none}.square{width:60px;height:60px;line-height:60px;font-size:40px;cursor:pointer;text-align:center}.selected{outline:3px solid #4caf50}label,select{font-weight:bold;margin:10px 5px}#status{margin-top:10px;font-size:18px;min-height:24px}button{margin-top:10px;font-size:16px;padding:6px 12px}
+    </style>
+    </head>
+    <body>
+      <h1>Chess vs AI</h1>
+      <label for="difficulty">Difficulty:</label><select id="difficulty"><option value="1">Easy</option><option value="2" selected>Medium</option><option value="3">Hard</option></select><label for="themeSelect">Board Theme:</label><select id="themeSelect"><option value="classic" selected>Classic</option><option value="blue">Blue</option><option value="green">Green</option><option value="dark">Dark</option></select><button id="restartBtn">Restart Game</button><div id="board"></div><div id="status">Your move (White)</div>
+    <script>
     (() => {
     const piecesUnicode={P:"♙",N:"♘",B:"♗",R:"♖",Q:"♕",K:"♔",p:"♟",n:"♞",b:"♝",r:"♜",q:"♛",k:"♚"};
     let board=[["r","n","b","q","k","b","n","r"],["p","p","p","p","p","p","p","p"],["","","","","","","",""],["","","","","","","",""],["","","","","","","",""],["","","","","","","",""],["P","P","P","P","P","P","P","P"],["R","N","B","Q","K","B","N","R"]];
