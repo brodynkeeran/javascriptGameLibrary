@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Texas Hold'em Poker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #2e7d32;
+            color: white;
+            margin: 0;
+            padding: 20px;
+        }
+        #game-container {
+            max-width: 800px;
+            text-align: center;
+        }
+        #table {
+            background-color: #1b5e20;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .player {
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #fff;
+            border-radius: 5px;
+            display: inline-block;
+        }
+        #community {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        #human-hand {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .card {
+            background-color: white;
+            color: black;
+            padding: 10px;
+            border-radius: 5px;
+            user-select: none;
+        }
+        #actions {
+            margin: 20px 0;
+        }
+        button {
+            background-color: #0288d1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #039be5;
+        }
+        #log {
+            background-color: #00000080;
+            padding: 10px;
+            height: 100px;
+            overflow-y: auto;
+            text-align: left;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>Texas Hold'em Poker</h1>
+        <div id="table">
+            <div id="pot">Pot: 0 chips</div>
+            <div id="players"></div>
+        </div>
+        <div id="community"></div>
+        <div id="human-hand"></div>
+        <div id="actions"></div>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        // Game state
+        const game = {
+            deck: [],
+            community: [],
+            players: [
+                { name: "You", chips: 1000, hand: [], active: true, inHand: true, bet: 0 },
+                { name: "AI1", chips: 1000, hand: [], active: true, inHand: true, bet: 0 },
+                { name: "AI2", chips: 1000, hand: [], active: true, inHand: true, bet: 0 },
+                { name: "AI3", chips: 1000, hand: [], active: true, inHand: true, bet: 0 }
+            ],
+            pot: 0,
+            currentBet: 0,
+            phase: "pre-deal",
+            dealer: 0,
+            smallBlind: 10,
+            bigBlind: 20,
+            currentPlayer: 0
+        };
+
+        // Card and deck setup
+        const suits = ["♠", "♥", "♦", "♣"];
+        const ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+        const handRanks = [
+            "High Card", "Pair", "Two Pair", "Three of a Kind", "Straight",
+            "Flush", "Full House", "Four of a Kind", "Straight Flush", "Royal Flush"
+        ];
+
+        function createDeck() {
+            game.deck = [];
+            for (let suit of suits) {
+                for (let rank of ranks) {
+                    game.deck.push({ suit, rank });
+                }
+            }
+            shuffle(game.deck);
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // Hand evaluation for Texas Hold'em
+        function evaluateHand(holeCards, communityCards) {
+            const allCards = [...holeCards, ...communityCards];
+            const combinations = getCombinations(allCards, 5);
+            let bestHand = { rank: 0, values: [] };
+            for (let combo of combinations) {
+                const handEval = evaluateFiveCardHand(combo);
+                if (handEval.rank > bestHand.rank || 
+                    (handEval.rank === bestHand.rank && compareValues(handEval.values, bestHand.values) > 0)) {
+                    bestHand = handEval;
+                }
+            }
+            return bestHand;
+        }
+
+        function evaluateFiveCardHand(hand) {
+            const values = hand.map(card => ranks.indexOf(card.rank)).sort((a, b) => b - a);
+            const suits = hand.map(card => card.suit);
+            const counts = {};
+            values.forEach(v => counts[v] = (counts[v] || 0) + 1);
+            const valueCounts = Object.values(counts).sort((a, b) => b - a);
+            const isFlush = suits.every(s => s === suits[0]);
+            const isStraight = values[0] - values[4] === 4 && new Set(values).size === 5;
+            const isRoyal = isStraight && values[0] === 12;
+
+            if (isFlush && isRoyal) return { rank: 9, values }; // Royal Flush
+            if (isFlush && isStraight) return { rank: 8, values }; // Straight Flush
+            if (valueCounts[0] === 4) return { rank: 7, values }; // Four of a Kind
+            if (valueCounts[0] === 3 && valueCounts[1] === 2) return { rank: 6, values }; // Full House
+            if (isFlush) return { rank: 5, values }; // Flush
+            if (isStraight) return { rank: 4, values }; // Straight
+            if (valueCounts[0] === 3) return { rank: 3, values }; // Three of a Kind
+            if (valueCounts[0] === 2 && valueCounts[1] === 2) return { rank: 2, values }; // Two Pair
+            if (valueCounts[0] === 2) return { rank: 1, values }; // Pair
+            return { rank: 0, values }; // High Card
+        }
+
+        function compareValues(values1, values2) {
+            for (let i = 0; i < values1.length; i++) {
+                if (values1[i] !== values2[i]) return values1[i] - values2[i];
+            }
+            return 0;
+        }
+
+        function getCombinations(array, k) {
+            const result = [];
+            function combine(start, combo) {
+                if (combo.length === k) {
+                    result.push([...combo]);
+                    return;
+                }
+                for (let i = start; i < array.length; i++) {
+                    combo.push(array[i]);
+                    combine(i + 1, combo);
+                    combo.pop();
+                }
+            }
+            combine(0, []);
+            return result;
+        }
+
+        function compareHands(player1, player2) {
+            const eval1 = evaluateHand(player1.hand, game.community);
+            const eval2 = evaluateHand(player2.hand, game.community);
+            if (eval1.rank !== eval2.rank) return eval1.rank - eval2.rank;
+            return compareValues(eval1.values, eval2.values);
+        }
+
+        // UI updates
+        function updateTable() {
+            const playersDiv = document.getElementById("players");
+            playersDiv.innerHTML = "";
+            game.players.forEach((player, i) => {
+                if (player.active) {
+                    const div = document.createElement("div");
+                    div.className = "player";
+                    let emotion = getAIEmotion(player, i);
+                    div.textContent = `${player.name}: ${player.chips} chips${emotion}${player.inHand ? "" : " (Folded)"}`;
+                    playersDiv.appendChild(div);
+                }
+            });
+            document.getElementById("pot").textContent = `Pot: ${game.pot} chips`;
+            updateCommunity();
+            updateHumanHand();
+            console.log(`Table updated (Phase: ${game.phase}, Community: ${game.community.map(c => `${c.rank}${c.suit}`).join(", ")})`);
+        }
+
+        function updateCommunity() {
+            const communityDiv = document.getElementById("community");
+            // Only clear if no community cards should be shown
+            if (!["flop", "turn", "river", "showdown"].includes(game.phase)) {
+                communityDiv.innerHTML = "";
+            } else {
+                // Render all community cards
+                communityDiv.innerHTML = "";
+                game.community.forEach(card => {
+                    const div = document.createElement("div");
+                    div.className = "card";
+                    div.textContent = `${card.rank}${card.suit}`;
+                    communityDiv.appendChild(div);
+                });
+            }
+            const renderedCards = game.community.map(c => `${c.rank}${c.suit}`).join(", ") || "none";
+            console.log(`Community cards rendered: ${renderedCards} (Phase: ${game.phase})`);
+        }
+
+        function updateHumanHand() {
+            const handDiv = document.getElementById("human-hand");
+            handDiv.innerHTML = "";
+            if (["preflop", "flop", "turn", "river", "showdown"].includes(game.phase) && game.players[0].inHand) {
+                game.players[0].hand.forEach(card => {
+                    const div = document.createElement("div");
+                    div.className = "card";
+                    div.textContent = `${card.rank}${card.suit}`;
+                    handDiv.appendChild(div);
+                });
+            }
+            const humanHand = game.players[0].inHand ? game.players[0].hand.map(c => `${c.rank}${c.suit}`).join(", ") : "none";
+            console.log(`Human hand rendered: ${humanHand} (Phase: ${game.phase})`);
+        }
+
+        function updateActions() {
+            const actionsDiv = document.getElementById("actions");
+            actionsDiv.innerHTML = "";
+            if (["preflop", "flop", "turn", "river"].includes(game.phase)) {
+                if (game.currentPlayer === 0 && game.players[0].inHand) {
+                    const toCall = game.currentBet - game.players[0].bet;
+                    if (toCall === 0) {
+                        actionsDiv.innerHTML = `
+                            <button onclick="humanAction('check')">Check</button>
+                            <button onclick="humanAction('bet')">Bet ${game.bigBlind * 2}</button>
+                            <button onclick="humanAction('fold')">Fold</button>
+                        `;
+                    } else {
+                        actionsDiv.innerHTML = `
+                            <button onclick="humanAction('call')">Call ${toCall}</button>
+                            <button onclick="humanAction('raise')">Raise to ${game.currentBet + game.bigBlind * 2}</button>
+                            <button onclick="humanAction('fold')">Fold</button>
+                        `;
+                    }
+                }
+            }
+        }
+
+        function log(message) {
+            const logDiv = document.getElementById("log");
+            logDiv.innerHTML += `<div>${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // AI behavior
+        function aiAction(index) {
+            console.log(`AI ${game.players[index].name} acting (Phase: ${game.phase}, Community: ${game.community.map(c => `${c.rank}${c.suit}`).join(", ")})`);
+            const player = game.players[index];
+            if (!player.inHand || !player.active) return;
+            const handEval = evaluateHand(player.hand, game.community);
+            const toCall = game.currentBet - player.bet;
+            let action = "fold";
+            const rand = Math.random();
+
+            if (handEval.rank >= 2) { // Strong
+                if (rand < 0.80) action = "raise";
+                else if (rand < 0.95) action = "call";
+            } else if (handEval.rank === 1) { // Medium
+                if (rand < 0.60) action = "call";
+                else if (rand < 0.80) action = "raise";
+            } else { // Weak
+                if (rand < 0.25) action = "call";
+                else if (rand < 0.30) action = "raise";
+            }
+
+            if (action === "fold" && toCall > 0) {
+                player.inHand = false;
+                log(`${player.name} folds nervously 😓.`);
+            } else if (action === "call" || toCall === 0) {
+                const chips = Math.min(toCall, player.chips);
+                player.chips -= chips;
+                player.bet += chips;
+                game.pot += chips;
+                log(`${player.name} ${toCall > 0 ? "calls" : "checks"} ${chips} chips${getAIEmotion(player, index)}.`);
+            } else if (action === "raise") {
+                const raiseTo = game.currentBet + game.bigBlind * 2;
+                const chips = Math.min(raiseTo - player.bet, player.chips);
+                player.chips -= chips;
+                player.bet += chips;
+                game.pot += chips;
+                game.currentBet = player.bet;
+                log(`${player.name} raises to ${player.bet} chips${getAIEmotion(player, index)}.`);
+            }
+            updateTable();
+            console.log(`AI ${player.name} action complete: ${action} (Phase: ${game.phase}, Community: ${game.community.map(c => `${c.rank}${c.suit}`).join(", ")})`);
+            nextPlayer();
+        }
+
+        // AI emotion
+        function getAIEmotion(player, index) {
+            if (index === 0 || !player.inHand) return "";
+            const handEval = evaluateHand(player.hand, game.community);
+            if (handEval.rank >= 2) return " 😎"; // Strong: Two Pair+
+            if (handEval.rank === 1) return " 🙂"; // Medium: Pair
+            return " 😓"; // Weak: High Card
+        }
+
+        // Human actions
+        function humanAction(action) {
+            console.log(`Human action: ${action} (Phase: ${game.phase}, Community: ${game.community.map(c => `${c.rank}${c.suit}`).join(", ")})`);
+            const player = game.players[0];
+            const toCall = game.currentBet - player.bet;
+            if (action === "fold") {
+                player.inHand = false;
+                log(`You fold.`);
+            } else if (action === "check") {
+                log(`You check.`);
+            } else if (action === "call") {
+                const chips = Math.min(toCall, player.chips);
+                player.chips -= chips;
+                player.bet += chips;
+                game.pot += chips;
+                log(`You call ${chips} chips.`);
+            } else if (action === "bet" || action === "raise") {
+                const raiseTo = game.currentBet + game.bigBlind * 2;
+                const chips = Math.min(raiseTo - player.bet, player.chips);
+                player.chips -= chips;
+                player.bet += chips;
+                game.pot += chips;
+                game.currentBet = player.bet;
+                log(`You ${action === "bet" ? "bet" : "raise to"} ${player.bet} chips.`);
+            }
+            updateTable();
+            nextPlayer();
+        }
+
+        // Game flow
+        function nextPlayer() {
+            game.currentPlayer = (game.currentPlayer + 1) % game.players.length;
+            while (!game.players[game.currentPlayer].active || !game.players[game.currentPlayer].inHand) {
+                game.currentPlayer = (game.currentPlayer + 1) % game.players.length;
+            }
+
+            if (["preflop", "flop", "turn", "river"].includes(game.phase)) {
+                const activeBets = game.players.filter(p => p.inHand && p.active).map(p => p.bet);
+                const activePlayers = game.players.filter(p => p.inHand && p.active).length;
+                if (activePlayers <= 1) {
+                    console.log(`Early showdown triggered: ${activePlayers} player(s) left (Phase: ${game.phase}, Community: ${game.community.map(c => `${c.rank}${c.suit}`).join(", ")})`);
+                    updateTable(); // Ensure UI is updated before showdown
+                    game.phase = "showdown";
+                    nextPhase();
+                } else if (new Set(activeBets).size === 1 && activeBets[0] === game.currentBet) {
+                    console.log(`Betting round complete, advancing phase (Phase: ${game.phase}, Community: ${game.community.map(c => `${c.rank}${c.suit}`).join(", ")})`);
+                    nextPhase();
+                } else if (game.currentPlayer === 0) {
+                    updateActions();
+                } else {
+                    aiAction(game.currentPlayer); // Synchronous call
+                }
+            }
+        }
+
+        function nextPhase() {
+            console.log(`Entering nextPhase (Current Phase: ${game.phase}, Community: ${game.community.map(c => `${c.rank}${c.suit}`).join(", ")})`);
+            if (game.phase === "pre-deal") {
+                createDeck();
+                game.pot = 0;
+                game.currentBet = 0;
+                game.community = [];
+                game.players.forEach(p => { 
+                    p.hand = []; 
+                    p.inHand = p.active; 
+                    p.bet = 0; 
+                });
+                const sbIndex = (game.dealer + 1) % game.players.length;
+                const bbIndex = (game.dealer + 2) % game.players.length;
+                if (game.players[sbIndex].active) {
+                    game.players[sbIndex].chips -= Math.min(game.smallBlind, game.players[sbIndex].chips);
+                    game.players[sbIndex].bet = Math.min(game.smallBlind, game.players[sbIndex].chips);
+                    game.pot += game.players[sbIndex].bet;
+                }
+                if (game.players[bbIndex].active) {
+                    game.players[bbIndex].chips -= Math.min(game.bigBlind, game.players[bbIndex].chips);
+                    game.players[bbIndex].bet = Math.min(game.bigBlind, game.players[bbIndex].chips);
+                    game.pot += game.players[bbIndex].bet;
+                }
+                game.currentBet = game.bigBlind;
+                log(`Blinds posted: ${game.players[sbIndex].name} (${game.players[sbIndex].bet}), ${game.players[bbIndex].name} (${game.players[bbIndex].bet}).`);
+                game.players.forEach(p => {
+                    if (p.active && p.inHand) {
+                        p.hand = [game.deck.pop(), game.deck.pop()];
+                    }
+                });
+                game.phase = "preflop";
+                game.currentPlayer = (game.dealer + 3) % game.players.length;
+                while (!game.players[game.currentPlayer].active || !game.players[game.currentPlayer].inHand) {
+                    game.currentPlayer = (game.currentPlayer + 1) % game.players.length;
+                }
+                updateTable();
+                updateHumanHand();
+                nextPlayer();
+            } else if (game.phase === "preflop") {
+                game.phase = "flop";
+                game.currentBet = 0;
+                game.players.forEach(p => p.bet = 0);
+                game.community = [game.deck.pop(), game.deck.pop(), game.deck.pop()];
+                log(`Flop: ${game.community.map(c => `${c.rank}${c.suit}`).join(", ")}`);
+                game.currentPlayer = game.dealer;
+                while (!game.players[game.currentPlayer].active || !game.players[game.currentPlayer].inHand) {
+                    game.currentPlayer = (game.currentPlayer + 1) % game.players.length;
+                }
+                updateTable();
+                nextPlayer();
+            } else if (game.phase === "flop") {
+                game.phase = "turn";
+                game.currentBet = 0;
+                game.players.forEach(p => p.bet = 0);
+                game.community.push(game.deck.pop());
+                log(`Turn: ${game.community[3].rank}${game.community[3].suit}`);
+                game.currentPlayer = game.dealer;
+                while (!game.players[game.currentPlayer].active || !game.players[game.currentPlayer].inHand) {
+                    game.currentPlayer = (game.currentPlayer + 1) % game.players.length;
+                }
+                updateTable();
+                nextPlayer();
+            } else if (game.phase === "turn") {
+                game.phase = "river";
+                game.currentBet = 0;
+                game.players.forEach(p => p.bet = 0);
+                game.community.push(game.deck.pop());
+                log(`River: ${game.community[4].rank}${game.community[4].suit}`);
+                updateTable(); // Explicitly render river
+                game.currentPlayer = game.dealer;
+                while (!game.players[game.currentPlayer].active || !game.players[game.currentPlayer].inHand) {
+                    game.currentPlayer = (game.currentPlayer + 1) % game.players.length;
+                }
+                nextPlayer();
+            } else if (game.phase === "river") {
+                game.phase = "showdown";
+                updateTable(); // Ensure community cards before showdown
+                const activePlayers = game.players.filter(p => p.inHand && p.active);
+                if (activePlayers.length === 1) {
+                    activePlayers[0].chips += game.pot;
+                    log(`${activePlayers[0].name} wins ${game.pot} chips (uncontested).`);
+                } else {
+                    const winner = activePlayers.reduce((best, p) => {
+                        const cmp = compareHands(p, best);
+                        return cmp > 0 ? p : best;
+                    }, activePlayers[0]);
+                    const winnerEval = evaluateHand(winner.hand, game.community);
+                    winner.chips += game.pot;
+                    log(`Showdown: ${activePlayers.map(p => `${p.name}: ${handRanks[evaluateHand(p.hand, game.community).rank]}`).join(", ")}`);
+                    log(`${winner.name} wins ${game.pot} chips with ${handRanks[winnerEval.rank]}!`);
+                }
+                game.pot = 0;
+                game.players.forEach(p => {
+                    if (p.chips <= 0) {
+                        p.active = false;
+                        p.inHand = false;
+                        log(`${p.name} is eliminated!`);
+                    }
+                });
+                const activeCount = game.players.filter(p => p.active).length;
+                if (activeCount === 1) {
+                    const winner = game.players.find(p => p.active);
+                    log(`Game Over! ${winner.name} wins with ${winner.chips} chips! 🏆`);
+                    document.getElementById("actions").innerHTML = `<button onclick="startGame()">Play Again</button>`;
+                    game.phase = "ended";
+                    return;
+                }
+                game.dealer = (game.dealer + 1) % game.players.length;
+                game.phase = "pre-deal";
+                setTimeout(startGame, 2000);
+            }
+            console.log(`Exiting nextPhase (New Phase: ${game.phase}, Community: ${game.community.map(c => `${c.rank}${c.suit}`).join(", ")})`);
+        }
+
+        function startGame() {
+            if (game.phase === "ended") {
+                game.players.forEach(p => {
+                    p.chips = 1000;
+                    p.active = true;
+                    p.inHand = true;
+                    p.hand = [];
+                    p.bet = 0;
+                });
+                game.pot = 0;
+                game.currentBet = 0;
+                game.dealer = 0;
+                game.community = [];
+                document.getElementById("log").innerHTML = "";
+            }
+            game.phase = "pre-deal";
+            updateTable();
+            updateHumanHand();
+            updateActions();
+            nextPhase();
+        }
+
+        // Start the game
+        startGame();
+    </script>
+</body>
+</html>

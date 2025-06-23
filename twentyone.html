@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blackjack</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Roboto&display=swap');
+    body {
+      font-family: 'Roboto', sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      background: radial-gradient(circle at center, #0b2a0b 0%, #062006 100%);
+      color: #f0e6c8;
+      text-align: center;
+      box-shadow: 0 0 20px #004400 inset;
+      border-radius: 12px;
+      padding: 30px 30px 100px;
+      user-select: none;
+      position: relative;
+      min-height: 100vh;
+    }
+    h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      font-size: 3rem;
+      margin-bottom: 15px;
+      color: #ffd700;
+    }
+    .hand {
+      margin: 20px 0;
+    }
+    .hand strong {
+      font-size: 1.3rem;
+    }
+    .cards {
+      margin-top: 12px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3), inset 0 0 8px rgba(255,255,255,0.7);
+      width: 60px;
+      height: 120px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 6px 8px;
+      color: black;
+      font-weight: 700;
+    }
+    .card.red {
+      color: #d00;
+    }
+    .card .corner {
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+    .card .top-left {
+      align-self: flex-start;
+    }
+    .card .bottom-right {
+      align-self: flex-end;
+      transform: rotate(180deg);
+    }
+    .card .center {
+      font-size: 2.4rem;
+      line-height: 1;
+    }
+    .card.hidden {
+      background: linear-gradient(45deg, #444 25%, #222 75%);
+      box-shadow: 0 0 8px #000 inset;
+      color: transparent;
+    }
+    #result {
+      margin-top: 28px;
+      font-size: .8rem;
+      font-weight: 700;
+      color: #ffe066;
+      min-height: 2em;
+    }
+    #bottomBar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      max-width: 600px;
+      background: #022202dd;
+      padding: 10px 20px;
+      box-shadow: 0 -5px 20px #004400cc;
+      display: flex;
+      flex-wrap: nowrap;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: saturate(180%) blur(12px);
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      user-select: none;
+      z-index: 999;
+      gap: 12px;
+      box-sizing: border-box;
+    }
+    #chips {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #ffe066;
+      min-width: 110px;
+      text-align: right;
+      white-space: nowrap;
+    }
+    #betButtons, #actionButtons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: nowrap;
+    }
+    #betButtons button,
+    #actionButtons button {
+      min-width: 70px;
+      margin: 0;
+      padding: 10px 14px;
+      font-size: 1rem;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+      background: linear-gradient(145deg, #ffd700, #e6b800);
+      border: none;
+      color: #2a2a2a;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3), inset 0 -3px 8px rgba(255,255,255,0.3);
+      transition: all 0.3s ease;
+    }
+    #betButtons button:hover:not(:disabled),
+    #actionButtons button:hover:not(:disabled) {
+      background: linear-gradient(145deg, #fff44f, #ffdb47);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.4), inset 0 -3px 10px rgba(255,255,255,0.5);
+      transform: translateY(-2px);
+    }
+    #betButtons button:disabled,
+    #actionButtons button:disabled {
+      background: #555555;
+      cursor: not-allowed;
+      box-shadow: none;
+      color: #aaa;
+    }
+
+    /* MOBILE STYLES */
+    @media (max-width: 600px) {
+      body {
+        margin: 10px;
+        padding: 20px 10px 140px;
+      }
+      h1 {
+        font-size: 2.2rem;
+      }
+      .card {
+        width: 44px;
+        height: 88px;
+        padding: 4px 6px;
+      }
+      .card .corner {
+        font-size: 0.85rem;
+      }
+      .card .center {
+        font-size: 1.5rem;
+      }
+      #bottomBar {
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: center;
+        padding: 10px;
+      }
+      #betButtons, #actionButtons {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      #betButtons button,
+      #actionButtons button {
+        min-width: 64px;
+        font-size: 0.9rem;
+        padding: 8px 10px;
+      }
+      #chips {
+        font-size: 1.1rem;
+        text-align: center;
+        min-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Blackjack</h1>
+
+  <div class="hand">
+    <strong>Dealer's Hand (<span id="dealerScore">0</span>):</strong>
+    <div id="dealerCards" class="cards"></div>
+  </div>
+
+  <div class="hand">
+    <strong>Your Hand (<span id="playerScore">0</span>):</strong>
+    <div id="playerCards" class="cards"></div>
+  </div>
+
+  <div id="result"></div>
+
+  <div id="bottomBar">
+    <div id="betButtons">
+      <button data-bet="10">$10</button>
+      <button data-bet="25">$25</button>
+      <button data-bet="50">$50</button>
+      <button data-bet="100">$100</button>
+    </div>
+    <div id="actionButtons">
+      <button id="hitBtn" disabled>Hit</button>
+      <button id="standBtn" disabled>Stand</button>
+      <button id="newGameBtn" disabled>Start</button>
+    </div>
+    <div id="chips">: $1000</div>
+  </div>
+
+  <script>
+    const SUITS = ['♠', '♥', '♦', '♣'];
+    const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+    let deck = [], playerHand = [], dealerHand = [], chips = 1000, currentBet = 0, gameOver = false;
+    const playerCardsDiv = document.getElementById('playerCards');
+    const dealerCardsDiv = document.getElementById('dealerCards');
+    const playerScoreSpan = document.getElementById('playerScore');
+    const dealerScoreSpan = document.getElementById('dealerScore');
+    const hitBtn = document.getElementById('hitBtn');
+    const standBtn = document.getElementById('standBtn');
+    const newGameBtn = document.getElementById('newGameBtn');
+    const resultDiv = document.getElementById('result');
+    const chipsDiv = document.getElementById('chips');
+    const betButtonsDiv = document.getElementById('betButtons');
+
+    function createDeck() {
+      return SUITS.flatMap(suit => RANKS.map(rank => ({ suit, rank })));
+    }
+
+    function shuffle(deck) {
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+    }
+
+    function cardValue(card) {
+      if (['J', 'Q', 'K'].includes(card.rank)) return 10;
+      if (card.rank === 'A') return 11;
+      return parseInt(card.rank);
+    }
+
+    function calculateScore(hand) {
+      let score = 0, aceCount = 0;
+      for (const card of hand) {
+        score += cardValue(card);
+        if (card.rank === 'A') aceCount++;
+      }
+      while (score > 21 && aceCount--) score -= 10;
+      return score;
+    }
+
+    function createCardElement(card, hidden = false) {
+      const div = document.createElement('div');
+      div.className = `card ${['♥', '♦'].includes(card.suit) ? 'red' : ''} ${hidden ? 'hidden' : ''}`;
+      if (!hidden) {
+        div.innerHTML = `
+          <div class="corner top-left">${card.rank}<br>${card.suit}</div>
+          <div class="center">${card.suit}</div>
+          <div class="corner bottom-right">${card.rank}<br>${card.suit}</div>
+        `;
+      }
+      return div;
+    }
+
+    function renderCards(container, hand, hideSecond = false) {
+      container.innerHTML = '';
+      hand.forEach((card, i) => {
+        const hidden = hideSecond && i === 1;
+        container.appendChild(createCardElement(card, hidden));
+      });
+    }
+
+    function renderHands(showDealerFull = false) {
+      renderCards(playerCardsDiv, playerHand);
+      playerScoreSpan.textContent = calculateScore(playerHand);
+      if (showDealerFull) {
+        renderCards(dealerCardsDiv, dealerHand);
+        dealerScoreSpan.textContent = calculateScore(dealerHand);
+      } else {
+        renderCards(dealerCardsDiv, dealerHand, true);
+        dealerScoreSpan.textContent = '?';
+      }
+    }
+
+    function updateChipsDisplay() {
+      chipsDiv.textContent = `Chips: $${chips}`;
+    }
+
+    function enableBetButtons(enable) {
+      betButtonsDiv.querySelectorAll('button').forEach(btn => btn.disabled = !enable);
+    }
+
+    function endGame(message) {
+      gameOver = true;
+      resultDiv.textContent = message;
+      renderHands(true);
+      hitBtn.disabled = true;
+      standBtn.disabled = true;
+      newGameBtn.disabled = false;
+      enableBetButtons(true);
+    }
+
+    function dealerTurn() {
+      while (calculateScore(dealerHand) < 17) dealerHand.push(deck.pop());
+    }
+
+    function startGame() {
+      if (currentBet === 0) return alert('Please place a bet.');
+      deck = createDeck(); shuffle(deck);
+      playerHand = [deck.pop(), deck.pop()];
+      dealerHand = [deck.pop(), deck.pop()];
+      gameOver = false;
+      resultDiv.textContent = '';
+      hitBtn.disabled = false;
+      standBtn.disabled = false;
+      newGameBtn.disabled = true;
+      enableBetButtons(false);
+      renderHands();
+      if (calculateScore(playerHand) === 21) stand();
+    }
+
+    function hit() {
+      if (gameOver) return;
+      playerHand.push(deck.pop());
+      renderHands();
+      if (calculateScore(playerHand) > 21) endGame('You bust! Dealer wins.');
+    }
+
+    function stand() {
+      dealerTurn();
+      const p = calculateScore(playerHand), d = calculateScore(dealerHand);
+      if (d > 21 || p > d) {
+        chips += currentBet * 2;
+        endGame('You win!');
+      } else if (p === d) {
+        chips += currentBet;
+        endGame('Push! It\'s a tie.');
+      } else {
+        endGame('Dealer wins.');
+      }
+      currentBet = 0;
+      updateChipsDisplay();
+    }
+
+    betButtonsDiv.querySelectorAll('button').forEach(btn => {
+      btn.onclick = () => {
+        const bet = +btn.dataset.bet;
+        if (bet > chips) return alert('Not enough chips.');
+        currentBet += bet;
+        chips -= bet;
+        updateChipsDisplay();
+        resultDiv.textContent = `Bet: $${currentBet}. Click "Start" to play.`;
+        newGameBtn.disabled = false;
+        hitBtn.disabled = true;
+        standBtn.disabled = true;
+      };
+    });
+
+    hitBtn.onclick = hit;
+    standBtn.onclick = stand;
+    newGameBtn.onclick = startGame;
+
+    updateChipsDisplay();
+  </script>
+</body>
+</html>
